@@ -2,9 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
   // Configuración
   // ---------------------------------------------------------------------------
-  // Dirección de tu API. Si usas un Dev Tunnel "Persistent", pega aquí su URL completa
-  // (termina en /api/optimizer/calcular) para que funcione en cualquier dispositivo,
-  // celular incluido, sin tener que configurarla en cada navegador.
   const API_POR_DEFECTO = 'https://localhost:44388/api/optimizer/calcular';
   const CLAVE_API = 'calcudiett_api_url';
   const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
@@ -35,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const leerGuardado = () => { try { return localStorage.getItem(CLAVE_API); } catch { return null; } };
   const guardar = (valor) => { try { localStorage.setItem(CLAVE_API, valor); } catch { /* sin almacenamiento */ } };
 
-  // Todo texto que viene de la API o del usuario se escapa antes de ir a innerHTML.
   const esc = (valor) => String(valor ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
@@ -80,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // OCR: foto de la pauta -> texto (Tesseract.js, se carga solo cuando se usa)
+  // OCR: foto de la pauta -> texto
   // ---------------------------------------------------------------------------
   let cargaTesseract = null;
   function cargarTesseract() {
@@ -104,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ocrEstado.textContent = mensaje;
   }
 
-  // Las fotos de celular pesan mucho: se reducen antes de leerlas (más rápido y gasta menos memoria).
   async function prepararImagen(archivo, ladoMax = 1800) {
     try {
       const bmp = await createImageBitmap(archivo, { imageOrientation: 'from-image' });
@@ -146,14 +141,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const resultado = await worker.recognize(imagen);
       const texto = limpiarTextoOcr(resultado && resultado.data && resultado.data.text);
       if (!texto) {
-        mostrarOcr('No pudimos leer texto en la imagen. Prueba con más luz o más cerca, o escribe la pauta a mano.', 'error');
+        mostrarOcr('No pudimos leer texto en la imagen. Prueba con más luz o escribe la pauta a mano.', 'error');
         return;
       }
       textoPauta.value = texto;
-      mostrarOcr('Listo. Revisa y corrige el texto antes de calcular: la lectura automática puede equivocarse.', 'ok');
+      mostrarOcr('Listo. Revisa y corrige el texto antes de calcular.', 'ok');
     } catch (err) {
       console.error('Error de OCR:', err);
-      mostrarOcr('No pudimos leer la imagen. Escribe la pauta a mano o intenta de nuevo.', 'error');
+      mostrarOcr('No pudimos leer la imagen. Escribe la pauta a mano.', 'error');
     } finally {
       if (worker) { try { await worker.terminate(); } catch { /* nada */ } }
     }
@@ -164,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('change', async (e) => {
       const archivo = e.target.files && e.target.files[0];
       await leerImagen(archivo);
-      e.target.value = ''; // permite volver a elegir la misma foto
+      e.target.value = '';
     });
   });
 
@@ -197,11 +192,11 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     const payload = {
-      textoPauta: pauta,
-      sinSelloSodio: chkSodio.checked,
-      sinSelloAzucar: chkAzucar.checked,
-      presupuestoMaximo: pres,
-      dias: nDias
+      TextoPauta: pauta,
+      SinSelloSodio: chkSodio.checked,
+      SinSelloAzucar: chkAzucar.checked,
+      PresupuestoMaximo: pres,
+      Dias: nDias
     };
 
     btnOptimizar.disabled = true;
@@ -213,7 +208,10 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         respuesta = await fetch(apiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Tunnel-Skip-AntiPhishing-Page': 'true' // Salta la pantalla de advertencia del túnel
+          },
           body: JSON.stringify(payload),
           signal: controlador.signal
         });
@@ -251,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     mostrarCajaError(
       porTiempo ? 'Tu API tardó demasiado en responder' : 'No pudimos conectarnos con tu API C#',
       `<p class="text-xs text-red-600 font-mono break-all">${esc(apiUrl)}</p>
-       <p class="text-xs text-gray-600">Asegúrate de que Visual Studio esté corriendo (F5), de que el túnel esté activo y de que la política CORS esté habilitada.</p>`
+       <p class="text-xs text-gray-600">Asegúrate de que Visual Studio esté corriendo (F5) y que el túnel esté activo.</p>`
     );
   }
 
@@ -263,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const no = (cuerpo.alimentosNoReconocidos || []).map(esc).join(', ');
       mostrarCajaError(
         'No pudimos identificar ningún alimento en tu pauta',
-        detalle('Prueba con un formato como: 150g de pollo, 100g de arroz, 2 huevos y 1 lechuga.') +
+        detalle('Prueba con un formato como: 150g de pollo, 100g de arroz, 2 huevos.') +
         (no ? `<p class="text-xs text-gray-500">No reconocimos: ${no}</p>` : '')
       );
       return;
@@ -273,15 +271,11 @@ document.addEventListener('DOMContentLoaded', () => {
       mostrarCajaError('Revisa los datos ingresados', detalle(mensajes || 'La API rechazó la solicitud.'));
       return;
     }
-    if (estado === 404 && codigo === 'RETAILER_DESCONOCIDO') {
-      mostrarCajaError('Ese comercio no está configurado en la API', detalle(cuerpo.mensaje || ''));
-      return;
-    }
     if (estado === 429) {
       mostrarCajaError('Demasiadas solicitudes seguidas', detalle('Espera un minuto e inténtalo de nuevo.'));
       return;
     }
-    mostrarCajaError(`La API respondió con un error (HTTP ${estado})`, detalle('Revisa la ventana de salida de Visual Studio para ver el detalle.'));
+    mostrarCajaError(`La API respondió con un error (HTTP ${estado})`, detalle('Revisa la consola de Visual Studio.'));
   }
 
   // ---------------------------------------------------------------------------
@@ -297,53 +291,58 @@ document.addEventListener('DOMContentLoaded', () => {
       clases: 'bg-amber-50 border-amber-200 text-amber-800'
     },
     PRESUPUESTO_INSUFICIENTE: {
-      icono: '⛔', titulo: 'Tu presupuesto no alcanza para ningún producto de la pauta',
+      icono: '⛔', titulo: 'Tu presupuesto no alcanza para ningún producto',
       clases: 'bg-red-50 border-red-200 text-red-800'
     }
   };
 
   function renderizarResultados(data, presMax) {
-    const items = data.productosSeleccionados || data.productos || [];
-    const costoTotal = Number(data.costoTotal) || 0;
-    const saldo = data.saldoDiferencia !== undefined ? Number(data.saldoDiferencia) : presMax - costoTotal;
-    const nDias = Number(data.dias) || 1;
-    const sinCubrir = data.requerimientosSinCubrir || [];
-    const notas = data.notasAjuste || [];
-    const noReconocidos = data.alimentosNoReconocidos || [];
+    const items = data.productosSeleccionados || data.ProductosSeleccionados || data.productos || [];
+    const costoTotal = Number(data.costoTotal || data.CostoTotal) || 0;
+    const saldo = data.saldoDiferencia !== undefined ? Number(data.saldoDiferencia) : (data.SaldoDiferencia !== undefined ? Number(data.SaldoDiferencia) : presMax - costoTotal);
+    const nDias = Number(data.dias || data.Dias) || 1;
+    const sinCubrir = data.requerimientosSinCubrir || data.RequerimientosSinCubrir || [];
+    const notas = data.notasAjuste || data.NotasAjuste || [];
 
-    const proteinas = items.reduce((a, i) => a + (Number(i.proteinasAportadas) || 0), 0);
-    const carbos = items.reduce((a, i) => a + (Number(i.carbohidratosAportados) || 0), 0);
+    const proteinas = items.reduce((a, i) => a + (Number(i.proteinasAportadas || i.ProteinasAportadas) || 0), 0);
+    const carbos = items.reduce((a, i) => a + (Number(i.carbohidratosAportados || i.CarbohidratosAportados) || 0), 0);
 
     const filas = items.map((it) => {
-      const envases = Number(it.envases) || 1;
-      const pct = it.porcentajeCobertura !== undefined ? Number(it.porcentajeCobertura) : 100;
-      const parcial = pct < 100;
-      const sellos = [it.selloSodio ? 'ALTO EN SODIO' : '', it.selloAzucar ? 'ALTO EN AZÚCARES' : '']
+      const nombre = it.nombre || it.Nombre || 'Producto';
+      const categoria = it.categoria || it.Categoria || '';
+      const envases = Number(it.envases || it.Envases) || 1;
+      const precioUnitario = Number(it.precio || it.Precio) || 0;
+      const subtotal = Number(it.subtotal || it.Subtotal) || (precioUnitario * envases);
+      
+      const sodio = it.selloSodio !== undefined ? it.selloSodio : it.SelloSodio;
+      const azucar = it.selloAzucar !== undefined ? it.selloAzucar : it.SelloAzucar;
+      const rescateVal = it.esRescate !== undefined ? it.esRescate : it.EsRescate;
+
+      const sellos = [sodio ? 'ALTO EN SODIO' : '', azucar ? 'ALTO EN AZÚCARES' : '']
         .filter(Boolean)
         .map((s) => `<span class="inline-block bg-gray-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded mr-1">${s}</span>`)
         .join('');
-      const rescate = it.esRescate
+      
+      const rescate = rescateVal
         ? '<span class="inline-block bg-amber-100 text-amber-800 text-[10px] font-semibold px-1.5 py-0.5 rounded">Mejor opción disponible</span>'
-        : '';
-      const cobertura = it.gramosRequeridos !== undefined
-        ? `<div class="text-[11px] ${parcial ? 'text-amber-600 font-semibold' : 'text-gray-400'}">Cubre ${formatGramos(it.gramosCubiertos)} de ${formatGramos(it.gramosRequeridos)}${parcial ? ` (${Math.round(pct)}%)` : ''}</div>`
         : '';
 
       return `
         <tr class="border-b border-gray-100 hover:bg-gray-50/50">
           <td class="py-3 px-4 text-left font-medium text-gray-800 text-xs">
-            ${esc(it.nombre)}
+            <div class="font-bold text-gray-900">${esc(nombre)}</div>
+            ${categoria ? `<div class="text-[10px] text-gray-400">${esc(categoria)}</div>` : ''}
             <div class="mt-1">${sellos}${rescate}</div>
-            ${cobertura}
           </td>
           <td class="py-3 px-4 text-center text-xs text-gray-600">${envases} ${envases === 1 ? 'envase' : 'envases'}</td>
-          <td class="py-3 px-4 text-right text-xs text-gray-600">${formatCLP(it.precio)}</td>
-          <td class="py-3 px-4 text-right font-bold text-xs text-gray-900">${formatCLP(it.subtotal !== undefined ? it.subtotal : (Number(it.precio) || 0) * envases)}</td>
+          <td class="py-3 px-4 text-right text-xs text-gray-600">${formatCLP(precioUnitario)}</td>
+          <td class="py-3 px-4 text-right font-bold text-xs text-gray-900">${formatCLP(subtotal)}</td>
         </tr>`;
     }).join('') || `
         <tr><td colspan="4" class="py-6 px-4 text-center text-xs text-gray-500">No se pudo armar ninguna compra con este presupuesto.</td></tr>`;
 
-    const estado = ESTADOS[data.estado];
+    const estadoKey = data.estado || data.Estado;
+    const estado = ESTADOS[estadoKey];
     const banner = estado
       ? `<div class="p-3 border rounded-xl text-xs font-semibold ${estado.clases}">${estado.icono} ${estado.titulo}</div>`
       : '';
@@ -354,20 +353,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const avisoSinCubrir = sinCubrir.length
       ? `<p class="text-xs text-red-700"><strong>Sin cubrir:</strong> ${sinCubrir.map(esc).join(', ')}</p>`
       : '';
-    const avisoNoReconocidos = noReconocidos.length
-      ? `<p class="text-xs text-gray-500">No reconocimos: ${noReconocidos.map(esc).join(', ')}. Prueba escribiéndolo de otra forma.</p>`
-      : '';
 
     contenedorResultados.innerHTML = `
       <div class="w-full text-left space-y-5">
         <div class="flex justify-between items-center pb-4 border-b border-gray-200">
           <div>
             <h3 class="text-xl font-extrabold text-gray-900">Canasta Recomendada</h3>
-            <p class="text-xs text-gray-500">Seleccionada según tu presupuesto y restricciones de Ley 20.606${nDias > 1 ? ` · compra para ${nDias} días` : ''}</p>
+            <p class="text-xs text-gray-500">Seleccionada según tu presupuesto y restricciones Ley 20.606${nDias > 1 ? ` · compra para ${nDias} días` : ''}</p>
           </div>
           <div class="text-right">
             <span class="text-2xl font-black text-brand-700">${formatCLP(costoTotal)}</span>
-            <span class="block text-[11px] text-gray-500">${saldo >= 0 ? 'Saldo a favor' : 'Excedido'}: ${formatCLP(Math.abs(saldo))}</span>
+            <span class="block text-[11px] ${saldo >= 0 ? 'text-green-600' : 'text-red-600'} font-medium">
+              ${saldo >= 0 ? 'Saldo a favor' : 'Excedido'}: ${formatCLP(Math.abs(saldo))}
+            </span>
           </div>
         </div>
 
@@ -389,14 +387,9 @@ document.addEventListener('DOMContentLoaded', () => {
           </table>
         </div>
 
-        ${items.length ? `<p class="text-[11px] text-gray-500">Aporte estimado de lo que consumes: ${proteinas.toLocaleString('es-CL', { maximumFractionDigits: 1 })} g de proteínas · ${carbos.toLocaleString('es-CL', { maximumFractionDigits: 1 })} g de carbohidratos</p>` : ''}
+        ${items.length ? `<p class="text-[11px] text-gray-500">Aporte estimado: ${proteinas.toLocaleString('es-CL', { maximumFractionDigits: 1 })} g de proteínas · ${carbos.toLocaleString('es-CL', { maximumFractionDigits: 1 })} g de carbohidratos</p>` : ''}
         ${avisoSinCubrir}
         ${listaNotas}
-        ${avisoNoReconocidos}
-      </div>
-    `;
-  }
-});
       </div>
     `;
   }
