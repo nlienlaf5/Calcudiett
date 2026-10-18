@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calcudiett — Optimizador Inteligente de Canastas</title>
   <meta name="description" content="Calcudiett — Optimizador inteligente de canastas de supermercado según pautas nutricionales, sellos de advertencia y presupuesto." />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🥗%3C/text%3E%3C/svg%3E" />
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -25,7 +25,7 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
 
@@ -99,6 +99,7 @@
                 <input type="file" id="inputArchivo" accept="image/*" class="hidden" />
               </label>
             </div>
+            <p id="ocrEstado" class="text-xs font-medium text-gray-600" aria-live="polite"></p>
           </div>
 
           <!-- Restricciones de Sellos -->
@@ -120,6 +121,13 @@
                 <span class="text-xs text-gray-500">Excluye productos con «ALTO EN AZÚCARES»</span>
               </div>
             </label>
+          </div>
+
+          <!-- Días de la compra -->
+          <div>
+            <label for="dias" class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">¿Para cuántos días es la compra?</label>
+            <input type="number" id="dias" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm font-bold focus:ring-2 focus:ring-brand-500 focus:border-brand-500" value="1" min="1" max="31" step="1" />
+            <p class="text-[11px] text-gray-400 mt-1">Las cantidades de tu pauta se entienden por día y se multiplican por este número. Ejemplo: 7 para una semana.</p>
           </div>
 
           <!-- Presupuesto -->
@@ -174,6 +182,11 @@
     <div class="max-w-7xl mx-auto px-4 text-center text-xs text-gray-500">
       Catálogo de supermercado chileno • Precios en pesos chilenos (CLP) • Sellos según Ley 20.606
     </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
   </footer>
 
   <script src="app.js"></script>
