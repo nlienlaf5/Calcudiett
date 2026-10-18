@@ -40,40 +40,44 @@ document.addEventListener('DOMContentLoaded', () => {
     style: 'currency', currency: 'CLP', maximumFractionDigits: 0
   }).format(Number(monto) || 0);
 
-  const formatGramos = (g) => {
-    const n = Number(g) || 0;
-    return n >= 1000
-      ? `${(n / 1000).toLocaleString('es-CL', { maximumFractionDigits: 2 })} kg`
-      : `${Math.round(n)} g`;
-  };
-
   let apiUrl = leerGuardado() || API_POR_DEFECTO;
-  urlApiInput.value = apiUrl;
+  if (urlApiInput) urlApiInput.value = apiUrl;
 
   // ---------------------------------------------------------------------------
   // Ejemplos rápidos y modal de configuración
   // ---------------------------------------------------------------------------
   document.querySelectorAll('.btn-ejemplo').forEach((btn) => {
     btn.addEventListener('click', () => {
-      textoPauta.value = btn.getAttribute('data-pauta');
+      if (textoPauta) textoPauta.value = btn.getAttribute('data-pauta');
     });
   });
 
-  btnConfigApi.addEventListener('click', () => {
-    modalApi.classList.remove('hidden');
-    modalApi.classList.add('flex');
-  });
+  if (btnConfigApi && modalApi) {
+    btnConfigApi.addEventListener('click', () => {
+      modalApi.classList.remove('hidden');
+      modalApi.classList.add('flex');
+    });
+  }
+
   const cerrarModal = () => {
-    modalApi.classList.add('hidden');
-    modalApi.classList.remove('flex');
+    if (modalApi) {
+      modalApi.classList.add('hidden');
+      modalApi.classList.remove('flex');
+    }
   };
-  btnCerrarModal.addEventListener('click', cerrarModal);
-  btnGuardarApi.addEventListener('click', () => {
-    apiUrl = urlApiInput.value.trim() || API_POR_DEFECTO;
-    guardar(apiUrl);
-    cerrarModal();
-    alert('URL de la API guardada correctamente.');
-  });
+
+  if (btnCerrarModal) btnCerrarModal.addEventListener('click', cerrarModal);
+
+  if (btnGuardarApi) {
+    btnGuardarApi.addEventListener('click', () => {
+      if (urlApiInput) {
+        apiUrl = urlApiInput.value.trim() || API_POR_DEFECTO;
+        guardar(apiUrl);
+      }
+      cerrarModal();
+      alert('URL de la API guardada correctamente.');
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // OCR: foto de la pauta -> texto
@@ -127,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!archivo) return;
     let worker = null;
     try {
-      mostrarOcr('Cargando el lector de texto… (la primera vez puede tardar un poco)');
+      mostrarOcr('Cargando el lector de texto…');
       await cargarTesseract();
       mostrarOcr('Preparando la imagen…');
       const imagen = await prepararImagen(archivo);
@@ -141,14 +145,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const resultado = await worker.recognize(imagen);
       const texto = limpiarTextoOcr(resultado && resultado.data && resultado.data.text);
       if (!texto) {
-        mostrarOcr('No pudimos leer texto en la imagen. Prueba con más luz o escribe la pauta a mano.', 'error');
+        mostrarOcr('No pudimos leer texto en la imagen. Prueba escribiéndola a mano.', 'error');
         return;
       }
-      textoPauta.value = texto;
-      mostrarOcr('Listo. Revisa y corrige el texto antes de calcular.', 'ok');
+      if (textoPauta) textoPauta.value = texto;
+      mostrarOcr('Listo. Revisa el texto antes de calcular.', 'ok');
     } catch (err) {
       console.error('Error de OCR:', err);
-      mostrarOcr('No pudimos leer la imagen. Escribe la pauta a mano.', 'error');
+      mostrarOcr('No pudimos leer la imagen.', 'error');
     } finally {
       if (worker) { try { await worker.terminate(); } catch { /* nada */ } }
     }
@@ -166,77 +170,78 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
   // Optimización
   // ---------------------------------------------------------------------------
-  btnOptimizar.addEventListener('click', async () => {
-    const pauta = textoPauta.value.trim();
-    const pres = parseFloat(presupuesto.value);
-    const nDias = dias ? parseInt(dias.value, 10) : 1;
+  if (btnOptimizar) {
+    btnOptimizar.addEventListener('click', async () => {
+      const pauta = textoPauta ? textoPauta.value.trim() : '';
+      const pres = presupuesto ? parseFloat(presupuesto.value) : 0;
+      const nDias = dias ? parseInt(dias.value, 10) : 1;
 
-    if (!pauta || pauta.length < 3) {
-      alert('Por favor ingresa una pauta nutricional válida.');
-      return;
-    }
-    if (!pres || pres <= 0) {
-      alert('Ingresa un presupuesto máximo válido en CLP.');
-      return;
-    }
-    if (!nDias || nDias < 1 || nDias > 31) {
-      alert('Los días de la compra deben estar entre 1 y 31.');
-      return;
-    }
+      if (!pauta || pauta.length < 3) {
+        alert('Por favor ingresa una pauta nutricional válida.');
+        return;
+      }
+      if (!pres || pres <= 0) {
+        alert('Ingresa un presupuesto máximo válido en CLP.');
+        return;
+      }
 
-    contenedorResultados.innerHTML = `
-      <div class="flex flex-col items-center py-12">
-        <div class="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p class="text-sm font-bold text-gray-700">Calculando la canasta óptima en tu backend C#...</p>
-      </div>
-    `;
+      if (contenedorResultados) {
+        contenedorResultados.innerHTML = `
+          <div class="flex flex-col items-center py-12">
+            <div class="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-sm font-bold text-gray-700">Calculando la canasta óptima en tu backend C#...</p>
+          </div>
+        `;
+      }
 
-    const payload = {
-      TextoPauta: pauta,
-      SinSelloSodio: chkSodio.checked,
-      SinSelloAzucar: chkAzucar.checked,
-      PresupuestoMaximo: pres,
-      Dias: nDias
-    };
+      const payload = {
+        TextoPauta: pauta,
+        SinSelloSodio: chkSodio ? chkSodio.checked : false,
+        SinSelloAzucar: chkAzucar ? chkAzucar.checked : false,
+        PresupuestoMaximo: pres,
+        Dias: nDias
+      };
 
-    btnOptimizar.disabled = true;
-    const controlador = new AbortController();
-    const temporizador = setTimeout(() => controlador.abort(), TIEMPO_MAXIMO_MS);
+      btnOptimizar.disabled = true;
+      const controlador = new AbortController();
+      const temporizador = setTimeout(() => controlador.abort(), TIEMPO_MAXIMO_MS);
 
-    try {
-      let respuesta;
       try {
-        respuesta = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-Tunnel-Skip-AntiPhishing-Page': 'true' // Salta la pantalla de advertencia del túnel
-          },
-          body: JSON.stringify(payload),
-          signal: controlador.signal
-        });
-      } catch (err) {
-        console.error('Error al conectar con la API:', err);
-        mostrarErrorConexion(err && err.name === 'AbortError');
-        return;
-      }
+        let respuesta;
+        try {
+          respuesta = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'X-Tunnel-Skip-AntiPhishing-Page': 'true'
+            },
+            body: JSON.stringify(payload),
+            signal: controlador.signal
+          });
+        } catch (err) {
+          console.error('Error al conectar con la API:', err);
+          mostrarErrorConexion(err && err.name === 'AbortError');
+          return;
+        }
 
-      const cuerpo = await respuesta.json().catch(() => null);
-      if (!respuesta.ok) {
-        mostrarErrorApi(respuesta.status, cuerpo);
-        return;
+        const cuerpo = await respuesta.json().catch(() => null);
+        if (!respuesta.ok) {
+          mostrarErrorApi(respuesta.status, cuerpo);
+          return;
+        }
+        renderizarResultados(cuerpo || {}, pres);
+      } finally {
+        clearTimeout(temporizador);
+        btnOptimizar.disabled = false;
       }
-      renderizarResultados(cuerpo || {}, pres);
-    } finally {
-      clearTimeout(temporizador);
-      btnOptimizar.disabled = false;
-    }
-  });
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Errores
   // ---------------------------------------------------------------------------
   function mostrarCajaError(titulo, detalleHtml) {
+    if (!contenedorResultados) return;
     contenedorResultados.innerHTML = `
       <div class="p-6 bg-red-50 border border-red-200 rounded-xl text-center space-y-3">
         <p class="text-sm font-bold text-red-700">${esc(titulo)}</p>
@@ -249,33 +254,13 @@ document.addEventListener('DOMContentLoaded', () => {
     mostrarCajaError(
       porTiempo ? 'Tu API tardó demasiado en responder' : 'No pudimos conectarnos con tu API C#',
       `<p class="text-xs text-red-600 font-mono break-all">${esc(apiUrl)}</p>
-       <p class="text-xs text-gray-600">Asegúrate de que Visual Studio esté corriendo (F5) y que el túnel esté activo.</p>`
+       <p class="text-xs text-gray-600">Asegúrate de que Visual Studio esté corriendo y que el túnel esté activo.</p>`
     );
   }
 
   function mostrarErrorApi(estado, cuerpo) {
-    const codigo = cuerpo && cuerpo.codigo;
     const detalle = (texto) => `<p class="text-xs text-gray-600">${esc(texto)}</p>`;
-
-    if (estado === 422 && codigo === 'PAUTA_NO_RECONOCIDA') {
-      const no = (cuerpo.alimentosNoReconocidos || []).map(esc).join(', ');
-      mostrarCajaError(
-        'No pudimos identificar ningún alimento en tu pauta',
-        detalle('Prueba con un formato como: 150g de pollo, 100g de arroz, 2 huevos.') +
-        (no ? `<p class="text-xs text-gray-500">No reconocimos: ${no}</p>` : '')
-      );
-      return;
-    }
-    if (estado === 400 && cuerpo && cuerpo.errors) {
-      const mensajes = Object.values(cuerpo.errors).flat().map(esc).join(' ');
-      mostrarCajaError('Revisa los datos ingresados', detalle(mensajes || 'La API rechazó la solicitud.'));
-      return;
-    }
-    if (estado === 429) {
-      mostrarCajaError('Demasiadas solicitudes seguidas', detalle('Espera un minuto e inténtalo de nuevo.'));
-      return;
-    }
-    mostrarCajaError(`La API respondió con un error (HTTP ${estado})`, detalle('Revisa la consola de Visual Studio.'));
+    mostrarCajaError(`Error de API (HTTP ${estado})`, detalle('Revisa la consola de Visual Studio.'));
   }
 
   // ---------------------------------------------------------------------------
@@ -297,15 +282,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function renderizarResultados(data, presMax) {
+    if (!contenedorResultados) return;
+
     const items = data.productosSeleccionados || data.ProductosSeleccionados || data.productos || [];
     const costoTotal = Number(data.costoTotal || data.CostoTotal) || 0;
     const saldo = data.saldoDiferencia !== undefined ? Number(data.saldoDiferencia) : (data.SaldoDiferencia !== undefined ? Number(data.SaldoDiferencia) : presMax - costoTotal);
     const nDias = Number(data.dias || data.Dias) || 1;
-    const sinCubrir = data.requerimientosSinCubrir || data.RequerimientosSinCubrir || [];
-    const notas = data.notasAjuste || data.NotasAjuste || [];
-
-    const proteinas = items.reduce((a, i) => a + (Number(i.proteinasAportadas || i.ProteinasAportadas) || 0), 0);
-    const carbos = items.reduce((a, i) => a + (Number(i.carbohidratosAportados || i.CarbohidratosAportados) || 0), 0);
 
     const filas = items.map((it) => {
       const nombre = it.nombre || it.Nombre || 'Producto';
@@ -316,23 +298,18 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const sodio = it.selloSodio !== undefined ? it.selloSodio : it.SelloSodio;
       const azucar = it.selloAzucar !== undefined ? it.selloAzucar : it.SelloAzucar;
-      const rescateVal = it.esRescate !== undefined ? it.esRescate : it.EsRescate;
 
       const sellos = [sodio ? 'ALTO EN SODIO' : '', azucar ? 'ALTO EN AZÚCARES' : '']
         .filter(Boolean)
         .map((s) => `<span class="inline-block bg-gray-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded mr-1">${s}</span>`)
         .join('');
-      
-      const rescate = rescateVal
-        ? '<span class="inline-block bg-amber-100 text-amber-800 text-[10px] font-semibold px-1.5 py-0.5 rounded">Mejor opción disponible</span>'
-        : '';
 
       return `
         <tr class="border-b border-gray-100 hover:bg-gray-50/50">
           <td class="py-3 px-4 text-left font-medium text-gray-800 text-xs">
             <div class="font-bold text-gray-900">${esc(nombre)}</div>
             ${categoria ? `<div class="text-[10px] text-gray-400">${esc(categoria)}</div>` : ''}
-            <div class="mt-1">${sellos}${rescate}</div>
+            <div class="mt-1">${sellos}</div>
           </td>
           <td class="py-3 px-4 text-center text-xs text-gray-600">${envases} ${envases === 1 ? 'envase' : 'envases'}</td>
           <td class="py-3 px-4 text-right text-xs text-gray-600">${formatCLP(precioUnitario)}</td>
@@ -345,13 +322,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const estado = ESTADOS[estadoKey];
     const banner = estado
       ? `<div class="p-3 border rounded-xl text-xs font-semibold ${estado.clases}">${estado.icono} ${estado.titulo}</div>`
-      : '';
-
-    const listaNotas = notas.length
-      ? `<ul class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1 list-disc list-inside">${notas.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`
-      : '';
-    const avisoSinCubrir = sinCubrir.length
-      ? `<p class="text-xs text-red-700"><strong>Sin cubrir:</strong> ${sinCubrir.map(esc).join(', ')}</p>`
       : '';
 
     contenedorResultados.innerHTML = `
@@ -386,10 +356,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </tbody>
           </table>
         </div>
-
-        ${items.length ? `<p class="text-[11px] text-gray-500">Aporte estimado: ${proteinas.toLocaleString('es-CL', { maximumFractionDigits: 1 })} g de proteínas · ${carbos.toLocaleString('es-CL', { maximumFractionDigits: 1 })} g de carbohidratos</p>` : ''}
-        ${avisoSinCubrir}
-        ${listaNotas}
       </div>
     `;
   }
