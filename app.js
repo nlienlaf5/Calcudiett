@@ -71,7 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Tunnel-Skip-AntiPhishing-Page': 'true' // Salta la pantalla de advertencia del túnel
+        },
         body: JSON.stringify(payload)
       });
 
@@ -133,6 +136,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </tbody>
           </table>
         </div>
+      </div>
+    `;
+  }
+});
       </div>
     `;
   }
